@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Academic Homepage</title>
+  <meta name="description" content="Personal academic website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- KaTeX for automatic LaTeX math rendering ($...$, $$...$$, \(...\), \[...\]) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+
+  <!-- PDF.js so you can use .pdf figures directly in image: "assets/figure.pdf"! -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // Apply saved or system theme immediately to prevent white flash at night
+    (function() {
+      const saved = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'dark' || (!saved && prefersDark)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- Top Navigation (links are dynamically generated based on active sections) -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="#" id="nav-brand" class="nav-brand"></a>
+      <nav id="nav-links" class="nav-links"></nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Hero / Profile Section -->
+    <section id="about" class="profile-section">
+      <div id="profile-sidebar" class="profile-sidebar"></div>
+      <div id="profile-bio" class="profile-bio"></div>
+    </section>
+
+    <!-- News / Updates Section (auto-hidden if empty) -->
+    <div id="news-wrapper" hidden>
+      <hr class="section-divider" />
+      <section id="news" class="content-section">
+        <h2>Recent News</h2>
+        <ul id="news-list" class="news-list"></ul>
+      </section>
+    </div>
+
+    <!-- Publications Section (auto-hidden if empty) -->
+    <div id="publications-wrapper" hidden>
+      <hr class="section-divider" />
+      <section id="publications" class="content-section">
+        <div class="section-header">
+          <h2>Publications &amp; Preprints</h2>
+          <p id="pub-note" class="muted"></p>
+        </div>
+        <div id="publications-list"></div>
+      </section>
+    </div>
+
+    <!-- Invited Talks & Presentations Section (auto-hidden if empty) -->
+    <div id="talks-wrapper" hidden>
+      <hr class="section-divider" />
+      <section id="talks" class="content-section">
+        <h2>Talks &amp; Presentations</h2>
+        <div id="talks-list" class="talks-list"></div>
+      </section>
+    </div>
+
+    <!-- Ongoing Research Projects Section (auto-hidden if empty) -->
+    <div id="projects-wrapper" hidden>
+      <hr class="section-divider" />
+      <section id="projects" class="content-section">
+        <h2>Research Projects</h2>
+        <div id="projects-grid" class="projects-grid"></div>
+      </section>
+    </div>
+
+    <!-- Teaching & Honors Section (auto-hidden if both are empty) -->
+    <div id="teaching-wrapper" hidden>
+      <hr class="section-divider" />
+      <section id="teaching" class="content-section two-col-section"></section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>© <span id="footer-year"></span> <span id="footer-name"></span> • Hosted on <a href="https://pages.github.com/" target="_blank" rel="noopener">GitHub Pages</a></p>
+      <p id="footer-updated-wrap" class="muted"></p>
+    </div>
+  </footer>
+
+  <!-- Image Lightbox Modal (click any figure to zoom full-screen) -->
+  <div id="lightbox-modal" class="lightbox-modal" hidden onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close preview">✕</button>
+    <img id="lightbox-img" class="lightbox-img" src="" alt="Expanded figure" onclick="event.stopPropagation()" />
+  </div>
+
+  <!-- Load your JSON-style content file and render the page -->
+  <script src="data.js"></script>
+  <script>
+    function toggleBibtex(id) {
+      const box = document.getElementById(id);
+      if (box) box.hidden = !box.hidden;
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const next = isDark ? 'light' : 'dark';
+      if (next === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      localStorage.setItem('theme', next);
+      updateThemeBtn();
+    }
+
+    function updateThemeBtn() {
+      const btn = document.getElementById('theme-toggle-btn');
+      if (!btn) return;
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      btn.textContent = isDark ? '☀️' : '🌙';
+      btn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+      btn.setAttribute('aria-label', btn.title);
+    }
+
+    function hasItems(arr) {
+      return Array.isArray(arr) && arr.length > 0;
+    }
+
+    // Renders either a normal image (.png, .jpg, .svg, .webp) OR a .pdf figure!
+    function renderThumbMedia(src, altText) {
+      if (!src) return '';
+      const isPdf = /\.pdf(\?|#|$)/i.test(src.trim());
+      if (isPdf) {
+        return `
+          <a href="${src}" target="_blank" rel="noopener" class="pdf-thumb-link" title="Click to open full PDF figure">
+            <canvas class="pdf-thumb-canvas" data-pdf-src="${src}" aria-label="${altText || 'PDF figure'}"></canvas>
+          </a>
+        `;
+      }
+      const safeAlt = (altText || 'Figure').replace(/"/g, '&quot;');
+      return `
+        <div class="zoomable-thumb" onclick="openLightbox('${src}', '${safeAlt}')" title="Click to enlarge figure">
+          <img src="${src}" alt="${safeAlt}" onload="checkImageAspect(this)" />
+          <span class="zoom-hint">🔍 Click to enlarge</span>
+        </div>
+      `;
+    }
+
+    // Automatically give wide banner figures (>1.8:1 aspect ratio) a full-width row!
+    function checkImageAspect(img) {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      const ratio = img.naturalWidth / img.naturalHeight;
+      const card = img.closest('.pub-card, .talk-item');
+      if (card && ratio >= 1.85 && !card.classList.contains('layout-side')) {
+        card.classList.add('wide-figure');
+      }
+    }
+
+    function openLightbox(src, alt) {
+      const modal = document.getElementById('lightbox-modal');
+      const img = document.getElementById('lightbox-img');
+      if (!modal || !img) return;
+      img.src = src;
+      img.alt = alt || 'Expanded figure';
+      modal.hidden = false;
+    }
+
+    function closeLightbox() {
+      const modal = document.getElementById('lightbox-modal');
+      if (modal) modal.hidden = true;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    async function renderPdfThumbnails() {
+      const canvases = document.querySelectorAll('canvas[data-pdf-src]');
+      if (!canvases.length || !window.pdfjsLib) return;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      for (const canvas of canvases) {
+        const url = canvas.getAttribute('data-pdf-src');
+        try {
+          const pdf = await pdfjsLib.getDocument(url).promise;
+          const page = await pdf.getPage(1);
+          const unscaled = page.getViewport({ scale: 1 });
+          // Render at crisp retina resolution (~600px wide)
+          const scale = 600 / unscaled.width;
+          const viewport = page.getViewport({ scale });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport }).promise;
+        } catch (err) {
+          // Note: If opened via file://, browser CORS may block PDF.js until hosted or converted to PNG.
+          console.warn('PDF thumbnail load note:', err);
+          const fallback = document.createElement('object');
+          fallback.data = `${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
+          fallback.type = 'application/pdf';
+          fallback.className = 'pdf-thumb-fallback';
+          canvas.replaceWith(fallback);
+        }
+      }
+    }
+
+    function renderLinks(links) {
+      if (!hasItems(links)) return '';
+      return links
+        .filter(l => l && l.label && l.url)
+        .map(l => `<a href="${l.url}" class="btn-tag" target="_blank" rel="noopener">${l.label}</a>`)
+        .join('');
+    }
+
+    function renderSite(data) {
+      const p = data.profile || {};
+      const name = p.name || 'Academic Homepage';
+      document.title = p.role ? `${name} | ${p.role}` : name;
+      document.getElementById('nav-brand').textContent = name;
+
+      // Build navigation links ONLY for sections that exist
+      const navItems = [{ label: 'About', href: '#about' }];
+      if (hasItems(data.news)) navItems.push({ label: 'News', href: '#news' });
+      if (hasItems(data.publications)) navItems.push({ label: 'Publications', href: '#publications' });
+      if (hasItems(data.talks)) navItems.push({ label: 'Talks', href: '#talks' });
+      if (hasItems(data.projects)) navItems.push({ label: 'Research', href: '#projects' });
+      if (hasItems(data.teaching) || hasItems(data.honorsAndService)) {
+        navItems.push({ label: 'Teaching & Service', href: '#teaching' });
+      }
+
+      const navHtml = navItems.map(item => `<a href="${item.href}">${item.label}</a>`).join('');
+      const cvBtnHtml = p.cvUrl
+        ? `<a href="${p.cvUrl}" target="_blank" rel="noopener" class="nav-cv-btn">CV (PDF)</a>`
+        : '';
+      const themeBtnHtml = `<button id="theme-toggle-btn" class="theme-toggle" onclick="toggleTheme()" type="button">🌙</button>`;
+      document.getElementById('nav-links').innerHTML = navHtml + cvBtnHtml + themeBtnHtml;
+      updateThemeBtn();
+
+      // 1. Sidebar (every field optional)
+      const socialHtml = hasItems(p.links)
+        ? p.links
+            .filter(l => l && l.label && l.url)
+            .map(l => `<a href="${l.url}" target="_blank" rel="noopener" class="social-pill ${l.highlight ? 'cv-highlight' : ''}"><span>${l.label}</span></a>`)
+            .join('')
+        : '';
+
+      const affiliationLines = [p.department, p.university].filter(Boolean).join('<br>');
+
+      document.getElementById('profile-sidebar').innerHTML = `
+        ${p.avatar ? `<img src="${p.avatar}" alt="${name}" class="profile-avatar" />` : ''}
+        ${p.name ? `<h1 class="profile-name">${p.name}</h1>` : ''}
+        ${p.role ? `<p class="profile-role">${p.role}</p>` : ''}
+        ${affiliationLines ? `<p class="profile-affiliation">${affiliationLines}</p>` : ''}
+        ${p.location ? `<p class="profile-location">${p.location}</p>` : ''}
+        ${socialHtml ? `<div class="social-links">${socialHtml}</div>` : ''}
+      `;
+
+      // 2. Bio (every field optional)
+      const paragraphsHtml = hasItems(p.aboutParagraphs)
+        ? p.aboutParagraphs.filter(Boolean).map(para => `<p>${para}</p>`).join('')
+        : '';
+      const calloutHtml = p.statusCallout
+        ? `<div class="status-callout">${p.statusCallout}</div>`
+        : '';
+
+      const hasInterests = hasItems(p.researchInterests);
+      const hasEdu = hasItems(p.education);
+      let subGridHtml = '';
+      if (hasInterests || hasEdu) {
+        const interestsCol = hasInterests
+          ? `<div>
+               <h3>Research Interests</h3>
+               <ul class="compact-list">${p.researchInterests.map(item => `<li>${item}</li>`).join('')}</ul>
+             </div>`
+          : '';
+        const eduCol = hasEdu
+          ? `<div>
+               <h3>Education</h3>
+               <ul class="education-list">${p.education.map(e => `
+                 <li>
+                   <strong>${e.degree || ''}</strong>${e.years ? `, ${e.years}` : ''}<br>
+                   ${e.institution ? `<span class="muted">${e.institution}</span>` : ''}
+                 </li>`).join('')}
+               </ul>
+             </div>`
+          : '';
+        subGridHtml = `<div class="interests-grid">${interestsCol}${eduCol}</div>`;
+      }
+
+      document.getElementById('profile-bio').innerHTML = `
+        <h2>About Me</h2>
+        ${paragraphsHtml}
+        ${calloutHtml}
+        ${subGridHtml}
+      `;
+
+      // 3. News (optional section)
+      if (hasItems(data.news)) {
+        document.getElementById('news-wrapper').hidden = false;
+        document.getElementById('news-list').innerHTML = data.news.map(n => `
+          <li>
+            ${n.date ? `<span class="news-date">${n.date}</span>` : ''}
+            <span class="news-text">${n.text || ''}</span>
+          </li>
+        `).join('');
+      }
+
+      // 4. Publications (optional section, every field & button optional)
+      if (hasItems(data.publications)) {
+        document.getElementById('publications-wrapper').hidden = false;
+        const noteEl = document.getElementById('pub-note');
+        noteEl.textContent = data.publicationsNote !== undefined
+          ? data.publicationsNote
+          : '(* indicates equal contribution)';
+
+        document.getElementById('publications-list').innerHTML = data.publications.map((pub, idx) => {
+          const bibId = `bib-${idx}`;
+          const thumbHtml = pub.image
+            ? `<div class="pub-thumb">${renderThumbMedia(pub.image, pub.title || 'Paper figure')}</div>`
+            : '';
+          const statusBadge = pub.status
+            ? `<div class="pub-badge ${pub.isPublished ? 'published' : ''}">${pub.status}</div>`
+            : '';
+          const titleHtml = pub.title
+            ? `<h3 class="pub-title">${pub.url ? `<a href="${pub.url}" target="_blank" rel="noopener">${pub.title}</a>` : pub.title}</h3>`
+            : '';
+          const authorsHtml = pub.authors ? `<p class="pub-authors">${pub.authors}</p>` : '';
+          const awardHtml = pub.award ? ` <span class="award-tag">${pub.award}</span>` : '';
+          const venueHtml = (pub.venue || pub.award)
+            ? `<p class="pub-venue">${pub.venue ? `<em>${pub.venue}</em>` : ''}${awardHtml}</p>`
+            : '';
+          const summaryHtml = pub.summary ? `<p class="pub-summary">${pub.summary}</p>` : '';
+
+          const buttonsHtml = renderLinks(pub.links);
+          const bibBtn = pub.bibtex
+            ? `<button class="btn-tag bibtex-toggle" onclick="toggleBibtex('${bibId}')">❝ BibTeX</button>`
+            : '';
+          const allButtons = (buttonsHtml || bibBtn)
+            ? `<div class="pub-links">${buttonsHtml}${bibBtn}</div>`
+            : '';
+          const bibBox = pub.bibtex
+            ? `<pre id="${bibId}" class="bibtex-box" hidden>${pub.bibtex}</pre>`
+            : '';
+
+          const pos = (pub.imagePosition || '').toLowerCase();
+          const layoutClass = pos === 'top'
+            ? 'wide-figure image-top'
+            : (pos === 'bottom'
+                ? 'wide-figure image-bottom'
+                : (pos === 'side' ? 'layout-side' : ''));
+
+          return `
+            <article class="pub-card ${layoutClass}">
+              ${thumbHtml}
+              <div class="pub-content">
+                ${statusBadge}
+                ${titleHtml}
+                ${authorsHtml}
+                ${venueHtml}
+                ${summaryHtml}
+                ${allButtons}
+                ${bibBox}
+              </div>
+            </article>
+          `;
+        }).join('');
+      }
+
+      // 5. Talks (optional section, every field & button optional)
+      if (hasItems(data.talks)) {
+        document.getElementById('talks-wrapper').hidden = false;
+        document.getElementById('talks-list').innerHTML = data.talks.map(talk => {
+          const thumbHtml = talk.image
+            ? `<div class="talk-thumb">${renderThumbMedia(talk.image, talk.title || 'Talk image')}</div>`
+            : '';
+          const styleKey = (talk.badgeStyle || '').toLowerCase();
+          const badgeClass = ['invited', 'featured', 'poster', 'keynote'].includes(styleKey)
+            ? styleKey
+            : '';
+          const hasMeta = talk.date || talk.type;
+          const metaHtml = hasMeta
+            ? `<div class="talk-meta">
+                 ${talk.date ? `<span class="talk-date">${talk.date}</span>` : ''}
+                 ${talk.type ? `<span class="talk-type ${badgeClass}">${talk.type}</span>` : ''}
+               </div>`
+            : '';
+          const venueParts = [
+            talk.venue ? `<strong>${talk.venue}</strong>` : '',
+            talk.location || ''
+          ].filter(Boolean).join(' • ');
+          const buttonsHtml = renderLinks(talk.links);
+
+          const pos = (talk.imagePosition || '').toLowerCase();
+          const layoutClass = pos === 'top'
+            ? 'wide-figure image-top'
+            : (pos === 'bottom'
+                ? 'wide-figure image-bottom'
+                : (pos === 'side' ? 'layout-side' : ''));
+
+          return `
+            <article class="talk-item ${layoutClass}">
+              ${metaHtml}
+              ${thumbHtml}
+              <div class="talk-details">
+                ${talk.title ? `<h3 class="talk-title">${talk.url ? `<a href="${talk.url}" target="_blank" rel="noopener">${talk.title}</a>` : talk.title}</h3>` : ''}
+                ${venueParts ? `<p class="talk-venue">${venueParts}</p>` : ''}
+                ${talk.summary ? `<p class="pub-summary">${talk.summary}</p>` : ''}
+                ${buttonsHtml ? `<div class="pub-links">${buttonsHtml}</div>` : ''}
+              </div>
+            </article>
+          `;
+        }).join('');
+      }
+
+      // 6. Research Projects (optional section, every field & button optional)
+      if (hasItems(data.projects)) {
+        document.getElementById('projects-wrapper').hidden = false;
+        document.getElementById('projects-grid').innerHTML = data.projects.map(proj => {
+          const buttonsHtml = renderLinks(proj.links);
+          return `
+            <div class="project-card">
+              <div>
+                ${proj.title ? `<h3>${proj.title}</h3>` : ''}
+                ${proj.description ? `<p>${proj.description}</p>` : ''}
+              </div>
+              ${buttonsHtml ? `<div class="pub-links">${buttonsHtml}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 7. Teaching & Honors (each sub-column is independently optional)
+      const hasTeaching = hasItems(data.teaching);
+      const hasHonors = hasItems(data.honorsAndService);
+      if (hasTeaching || hasHonors) {
+        const teachingWrapper = document.getElementById('teaching-wrapper');
+        const teachingSection = document.getElementById('teaching');
+        teachingWrapper.hidden = false;
+
+        const teachingCol = hasTeaching
+          ? `<div>
+               <h2>Teaching</h2>
+               <ul class="clean-list">
+                 ${data.teaching.map(t => `
+                   <li>
+                     ${t.course ? `<strong>${t.course}</strong><br>` : ''}
+                     ${t.role ? `<span class="muted">${t.role}</span>` : ''}
+                   </li>`).join('')}
+               </ul>
+             </div>`
+          : '';
+
+        const honorsCol = hasHonors
+          ? `<div>
+               <h2>Honors &amp; Academic Service</h2>
+               <ul class="clean-list">
+                 ${data.honorsAndService.map(h => `<li>${h}</li>`).join('')}
+               </ul>
+             </div>`
+          : '';
+
+        teachingSection.innerHTML = teachingCol + honorsCol;
+      }
+
+      // Footer
+      document.getElementById('footer-year').textContent = new Date().getFullYear();
+      document.getElementById('footer-name').textContent = name;
+      const updatedWrap = document.getElementById('footer-updated-wrap');
+      updatedWrap.textContent = p.lastUpdated ? `Last updated: ${p.lastUpdated}` : '';
+
+      // Trigger KaTeX math rendering once content is injected
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\[', right: '\\]', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false }
+          ],
+          throwOnError: false
+        });
+      }
+
+      // Render any .pdf figures used in `image` fields
+      renderPdfThumbnails();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderSite(SITE_DATA);
+    });
+  </script>
+</body>
+</html>
