@@ -1,20 +1,7 @@
 // ============================================================================
 // ACADEMIC WEBSITE CONTENT FILE (JSON-style data)
 // ============================================================================
-// EVERYTHING IN THIS FILE IS OPTIONAL:
-// - Don't want buttons on a paper, talk, or project? Set `links: []` (or omit `links`).
-// - Don't want an image on a paper or talk? Set `image: ""` (or omit `image`).
-// - Don't want a status badge, summary, award, or BibTeX? Set it to `""` (or omit it).
-// - Don't want an entire section (e.g. `news: []` or `projects: []`)? Empty the array
-//   and the entire section + its top navigation link will automatically disappear!
-//
-// LATEX MATH SUPPORT (via KaTeX):
-// - Write inline math with $...$, e.g. "optimizing $\mathcal{L}(\theta)$ in $\mathbb{R}^d$".
-// - Note: Because this is a JS file, if you use backticks `...` or quotes "...",
-//   use String.raw`...` or double-backslash `\\alpha` when writing LaTeX commands!
-//   Tip: Prefixing any string containing LaTeX with String.raw`...` lets you write
-//   normal single-backslash LaTeX like String.raw`We prove an $O(\sqrt{T})$ bound.`
-// ============================================================================
+
 
 const SITE_DATA = {
   // 1. PROFILE & BIO
