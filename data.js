@@ -20,7 +20,7 @@ const SITE_DATA = {
   // 1. PROFILE & BIO
   profile: {
     name: "Theophilus Amaefuna",
-    role: "PhD Candidate in Computer Science",
+    role: "PhD Student in Computer Science",
     department: "Bellini College of Artificial Intelligence, Cybersecurity and Computing",
     university: "University of South Florida",
     location: "📍 Tampa, FL",
